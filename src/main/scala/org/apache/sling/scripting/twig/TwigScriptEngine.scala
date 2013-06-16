@@ -14,9 +14,10 @@ object TwigScriptEngine {
   private val NL = System.getProperty("line.separator");
 }
 
-
 class TwigScriptEngine(val factory: TwigScriptEngineFactory) extends AbstractScriptEngine {
   import TwigScriptEngine._
+
+  val parser = new TwigParsers
 
   def getFactory: ScriptEngineFactory = factory
 
@@ -33,11 +34,11 @@ class TwigScriptEngine(val factory: TwigScriptEngineFactory) extends AbstractScr
         nextLine = bufferedScript.readLine
       }
     } catch {
-      case e: IOException => throw new ScriptException(e) 
+      case e: IOException => throw new ScriptException(e)
     }
-    
+
     eval(script.toString, context)
   }
 
-  def eval(script: String, context: ScriptContext): Object = null
+  def eval(script: String, context: ScriptContext): Object = parser(script)
 }
