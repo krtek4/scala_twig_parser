@@ -90,32 +90,37 @@ class TwigParsersSuite extends FunSpec with OneInstancePerTest {
     }
 
     it("should parse simple variables") {
-      assert(MyParser.check(MyParser.variable, "{{ foo }}"))
-      assert(MyParser.check(MyParser.variable, "{{ bar }}"))
-      assert(MyParser.check(MyParser.variable, "{{ baz }}"))
+      assert(MyParser.check(MyParser.printable, "{{ foo }}"))
+      assert(MyParser.check(MyParser.printable, "{{ bar }}"))
+      assert(MyParser.check(MyParser.printable, "{{ baz }}"))
     }
 
     it("should parse simple variables with one filter") {
-      assert(MyParser.check(MyParser.variable, "{{ foo | upper }}"))
-      assert(MyParser.check(MyParser.variable, "{{ foo|upper}}"))
-      assert(MyParser.check(MyParser.variable, "{{ foo |upper }}"))
-      assert(MyParser.check(MyParser.variable, "{{ foo| upper }}"))
+      assert(MyParser.check(MyParser.printable, "{{ foo | upper }}"))
+      assert(MyParser.check(MyParser.printable, "{{ foo|upper}}"))
+      assert(MyParser.check(MyParser.printable, "{{ foo |upper }}"))
+      assert(MyParser.check(MyParser.printable, "{{ foo| upper }}"))
     }
 
     it("should parse simple variables with multiple filters") {
-      assert(MyParser.check(MyParser.variable, "{{ foo | upper | json_encode() }}"))
-      assert(MyParser.check(MyParser.variable, "{{ foo|abs|upper|trim}}"))
+      assert(MyParser.check(MyParser.printable, "{{ foo | upper | json_encode() }}"))
+      assert(MyParser.check(MyParser.printable, "{{ foo|abs|upper|trim}}"))
     }
 
     it("should parse variables with dot notation") {
-      assert(MyParser.check(MyParser.variable, "{{ foo.bar }}"))
-      assert(MyParser.check(MyParser.variable, "{{ foo.bar | upper }}"))
+      assert(MyParser.check(MyParser.printable, "{{ foo.bar }}"))
+      assert(MyParser.check(MyParser.printable, "{{ foo.bar.baz }}"))
+      assert(MyParser.check(MyParser.printable, "{{ foo.bar | upper }}"))
     }
 
     it("should parse variables with braquet notation") {
-      assert(MyParser.check(MyParser.variable, "{{ foo['bar'] }}"))
-      assert(MyParser.check(MyParser.variable, "{{ foo['bar'] | upper }}"))
+      assert(MyParser.check(MyParser.printable, "{{ foo['bar'] }}"))
+      assert(MyParser.check(MyParser.printable, "{{ foo['bar']['baz'] }}"))
+      assert(MyParser.check(MyParser.printable, "{{ foo['bar'] | upper }}"))
     }
 
+    it("should parse variables with both dot and bracket notation") {
+      assert(MyParser.check(MyParser.printable, "{{ foo['bar'].baz['toto'] }}"))
+    }
   }
 }

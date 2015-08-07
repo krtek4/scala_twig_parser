@@ -1,11 +1,24 @@
 package org.apache.sling.scripting.twig
 
 import scala.util.parsing.combinator.RegexParsers
+import org.apache.sling.scripting.twig.elements.ParameteredFilter
+import org.apache.sling.scripting.twig.elements.Filter
+import org.apache.sling.scripting.twig.elements.Printable
+import org.apache.sling.scripting.twig.elements.Variable
+import org.apache.sling.scripting.twig.elements.Value
+import org.apache.sling.scripting.twig.elements.Concatenation
+import org.apache.sling.scripting.twig.elements.Token
+import org.apache.sling.scripting.twig.elements.Literal
+import org.apache.sling.scripting.twig.elements.SimpleVariable
+import org.apache.sling.scripting.twig.elements.AccessorVariable
+import org.apache.sling.scripting.twig.elements.ValueHolder
+import org.apache.sling.scripting.twig.elements.Concatenation
+import org.apache.sling.scripting.twig.elements.FilteredValueHolder
 
 class TwigParsers extends RegexParsers {
-  def identifier = """[a-zA-Z][a-zA-Z0-9]*""".r
+  def identifier: Parser[String] = """[a-zA-Z][a-zA-Z0-9]*""".r ^^ { _.toString }
   def number: Parser[Double] = """/[0-9]+(?:\.[0-9]+)?/A""".r ^^ { _.toDouble }
-  def string = """/"([^#"\\\\]*(?:\\\\.[^#"\\\\]*)*)"|\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'/As""".r
+  def string: Parser[String] = """/"([^#"\\\\]*(?:\\\\.[^#"\\\\]*)*)"|\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'/As""".r
   def punctuation = """()[]{}?:.,|""".r
 
   def whitespace_trim = "-"
@@ -18,6 +31,7 @@ class TwigParsers extends RegexParsers {
   def tag_start_comment = "{#" ~ whitespace_trim.?
   def tag_end_comment = whitespace_trim.? ~ "#}"
 
+  /* Language elements */
   def tags = "autoescape" | "block" | "do" | "embed" |
     "extends" | "filter" | "flush" | "for" | "from" | "if" |
     "import" | "include" | "macro" | "sandbox" | "set" | "spaceless" |
@@ -29,7 +43,7 @@ class TwigParsers extends RegexParsers {
 
   def parametered_filters: Parser[ParameteredFilter] = ("batch" | "convert_encoding" | "date_modify"
     | "date" | "default" | "format" | "join" | "merge" | "number_format" | "replace" | "slice"
-    | "split") ~ ("(" ~> printable.* <~ ")") ^^ { case name ~ parameters => ParameteredFilter(name, parameters) }
+    | "split") ~ ("(" ~> repsep(parameter, ",") <~ ")") ^^ { case name ~ parameters => ParameteredFilter(name, parameters) }
 
   def filters: Parser[Filter] = parametered_filters | simple_filters
 
@@ -43,11 +57,32 @@ class TwigParsers extends RegexParsers {
   def logical_operators = "and" | "or" | "not" | "(" | ")" | "b-and" | "b-xor" | "b-or"
   def comparison_operators = "===" | "==" | "!=" | "<=" | "<" | ">=" | ">"
   def operators = "in" | "is" | math_operators | logical_operators | comparison_operators | ".." | "?:"
+  
+  /* Parameters */
+  def variable: Parser[Variable] = identifier ~ (("." ~> identifier) | ("['" ~> identifier <~ "']")).* ^^ {
+    case name ~ Nil => SimpleVariable(name)
+    case name ~ children => AccessorVariable(name, children)
+  }
+  def string_value: Parser[Value] = string ^^ { value => Value(value)}
+  def value_holder: Parser[ValueHolder] = variable | string_value
+  def parameter: Parser[ValueHolder] = (variable ~ (apply_filter ~> filters).*) ^^ {
+    case v ~ Nil => v
+    case v ~ fs => FilteredValueHolder(v, fs)
+  }
+  def concatenation: Parser[ValueHolder] = parameter ~ ("~" ~> parameter).* ^^ {
+    case v ~ Nil => v
+    case v ~ vs => Concatenation(v :: vs)
+  }
+  
+  /* Printable */
+  def printable: Parser[Printable] = tag_start_variable ~> concatenation <~ tag_end_variable ^^ {
+    case v => Printable(v)
+  }
+  
+  def non_twig: Parser[Literal] = """[^]""".r ^^ { case value => Literal(value) }
+  
+  def script: Parser[List[Token]] = (printable | non_twig).*
 
-  def simple_printable = identifier ~ ("." ~> identifier) | identifier ~ ("['" ~> identifier <~ "']") | identifier
-  def printable = simple_printable ~ ("~" ~> simple_printable).*
-  def variable = tag_start_variable ~> (printable ~ (apply_filter ~> filters).*) <~ tag_end_variable
-
-  def apply(input: String): String = input
+  def apply(input: String): List[Token] = parseAll(script, input).get
 }
 
